@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import hashlib
+import json
 import os
 import pathlib
 import shlex
@@ -1093,3 +1094,62 @@ def test_mcp_visible_descriptions_contain_recovery_guidance():
     assert "create or replace" in descriptions["write_file"]
     assert "$TMPDIR" in descriptions["run_command"]
     assert "never rewritten" in descriptions["run_command"]
+
+
+def test_advertised_tool_schemas_have_no_defs_or_refs():
+    """Every tool must advertise a self-contained schema.
+
+    Pydantic emits nested models as {"$ref": "#/$defs/Name"} plus a $defs
+    block. $defs is a JSON Schema 2019-09 keyword, and clients pinned to
+    draft-07 (or clients that rewrite schemas into a provider's
+    function-calling format) drop it and then fail to resolve the pointer,
+    rejecting the tool with "Pointer '/$defs/ReadFileSpec' does not exist".
+    _flatten_tool_schemas inlines the definitions so that cannot happen.
+    """
+    tools = server.mcp._tool_manager.list_tools()
+    assert tools, "no tools registered"
+
+    for tool in tools:
+        blob = json.dumps(tool.parameters)
+        assert "$defs" not in blob, f"{tool.name} still advertises $defs"
+        assert '"$ref"' not in blob, f"{tool.name} still advertises a $ref"
+
+
+def test_nested_contracts_survive_inlining():
+    """Inlining must keep the nested item contracts intact, not just drop refs."""
+    reads = server.mcp._tool_manager._tools["read_files"].parameters
+    item = reads["properties"]["reads"]["items"]
+    assert item["type"] == "object"
+    assert item["required"] == ["path"]
+    assert set(item["properties"]) == {"path", "offset", "limit", "line_numbers"}
+
+    files = server.mcp._tool_manager._tools["edit_files"].parameters
+    file_item = files["properties"]["files"]["items"]
+    assert set(file_item["required"]) == {"path", "edits"}
+    nested = file_item["properties"]["edits"]["items"]
+    assert set(nested["required"]) == {"mode", "match_text", "write_text"}
+    assert nested["properties"]["mode"]["enum"] == [
+        "replace_match", "insert_before", "insert_after"]
+
+    edit = server.mcp._tool_manager._tools["edit_file"].parameters
+    edit_item = edit["properties"]["edits"]["items"]
+    assert edit_item["properties"]["match_text"]["minLength"] == 1
+    assert "matchText" in edit_item["properties"]["match_text"]["description"]
+
+
+def test_inline_schema_refs_survives_recursion():
+    """A self-referential definition must not loop forever."""
+    defs = {"Node": {"type": "object",
+                     "properties": {"child": {"$ref": "#/$defs/Node"}}}}
+    out = server._inline_schema_refs(defs["Node"], defs)
+    blob = json.dumps(out)
+    assert "$ref" not in blob
+    assert '"$defs"' not in blob
+
+
+def test_inline_schema_refs_keeps_sibling_keys():
+    defs = {"Spec": {"type": "object", "description": "from defs"}}
+    out = server._inline_schema_refs(
+        {"$ref": "#/$defs/Spec", "description": "from ref"}, defs)
+    assert out["type"] == "object"
+    assert out["description"] == "from ref"

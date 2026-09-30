@@ -1292,6 +1292,55 @@ def edit_files(files: list[EditFileSpec], dry_run: bool = False) -> dict:
     return _run_transaction(files, dry_run)
 
 
+def _inline_schema_refs(node, defs, seen=frozenset()):
+    """Replace local {"$ref": "#/$defs/X"} pointers with the schema they name.
+
+    Returns a copy with no $ref and no $defs left anywhere in the tree.
+    """
+    if isinstance(node, list):
+        return [_inline_schema_refs(item, defs, seen) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    ref = node.get("$ref")
+    if isinstance(ref, str) and ref.startswith("#/$defs/"):
+        name = ref[len("#/$defs/"):]
+        if name in seen or name not in defs:
+            # Recursive or dangling: drop the pointer rather than loop forever.
+            return {k: _inline_schema_refs(v, defs, seen)
+                    for k, v in node.items() if k != "$ref"}
+        # A ref may carry sibling keys (description, default); let them win.
+        merged = _inline_schema_refs(defs[name], defs, seen | {name})
+        for key, value in node.items():
+            if key != "$ref":
+                merged[key] = _inline_schema_refs(value, defs, seen | {name})
+        return merged
+
+    return {k: _inline_schema_refs(v, defs, seen)
+            for k, v in node.items() if k != "$defs"}
+
+
+def _flatten_tool_schemas() -> None:
+    """Drop $defs from every tool's advertised input schema.
+
+    Pydantic emits nested models as {"$ref": "#/$defs/Name"} plus a $defs
+    block. That is valid JSON Schema 2019-09, but $defs is a 2019-09 keyword:
+    clients pinned to draft-07, and MCP clients that rewrite schemas into a
+    provider's function-calling format, routinely discard $defs and then fail
+    to resolve the pointer, rejecting the whole tool with an error like
+    "Pointer '/$defs/ReadFileSpec' does not exist". Inlining the definitions
+    costs a few bytes per tool and removes the failure mode. The server-side
+    pydantic models are untouched, so validation is unchanged.
+    """
+    for tool in mcp._tool_manager.list_tools():
+        schema = getattr(tool, "parameters", None)
+        if isinstance(schema, dict) and "$defs" in schema:
+            tool.parameters = _inline_schema_refs(schema, schema.get("$defs", {}))
+
+
+_flatten_tool_schemas()
+
+
 if __name__ == "__main__":
     auth_token = os.environ.get("MCP_AUTH_TOKEN", "").strip()
     app = mcp.streamable_http_app()
