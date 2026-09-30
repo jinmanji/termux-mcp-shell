@@ -174,6 +174,11 @@ def _run_uninstaller(env, *args):
         capture_output=True)
 
 
+def _run_script(env, script, *args):
+    return subprocess.run(
+        ["sh", script, *args], env=env, text=True, capture_output=True)
+
+
 def test_uninstaller_removes_install_and_keeps_surrounding_rc_lines(tmp_path):
     env, bashrc, dest, python_log, _ = _uninstall_env(tmp_path)
 
@@ -255,3 +260,27 @@ def test_uninstaller_refuses_dangerous_destinations(tmp_path):
         assert "refusing to operate on" in result.stderr, unsafe
 
     assert dest.exists()
+
+
+def test_uninstaller_runs_from_inside_the_directory_it_deletes(tmp_path):
+    """The documented invocation runs the script out of DEST.
+
+    A shell reads a script incrementally, so deleting DEST mid-run can
+    truncate the remaining commands. The uninstaller stages a temporary copy
+    and re-executes, so the whole uninstall completes and nothing is left in
+    TMPDIR.
+    """
+    env, bashrc, dest, _, _ = _uninstall_env(tmp_path)
+    staged = dest / "uninstall.sh"
+    shutil.copy2(ROOT / "uninstall.sh", staged)
+    staged.chmod(0o755)
+
+    result = _run_script(env, str(staged), "--yes")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Re-executing from a temporary copy" in result.stdout
+    assert not dest.exists()
+    assert bashrc.read_text() == "export FOO=1\necho after\n"
+    # The staged copy must not be left behind in TMPDIR.
+    leftovers = list(pathlib.Path(env.get("TMPDIR", "/tmp")).glob("mcpsh-uninstall.*"))
+    assert not leftovers, leftovers

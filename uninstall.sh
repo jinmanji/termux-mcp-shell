@@ -20,19 +20,6 @@ usage() {
     exit "${1:-0}"
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --dry-run|-n) DRY_RUN=1 ;;
-        --yes|-y) ASSUME_YES=1 ;;
-        --purge-deps) PURGE_DEPS=1 ;;
-        --dest) DEST="${2:-}"; shift ;;
-        --dest=*) DEST="${1#--dest=}" ;;
-        -h|--help) usage 0 ;;
-        *) printf 'unknown option: %s\n' "$1" >&2; usage 2 ;;
-    esac
-    shift
-done
-
 run() {
     if [ "$DRY_RUN" -eq 1 ]; then
         printf '    would run: %s\n' "$*"
@@ -70,6 +57,45 @@ if [ -z "$DEST" ]; then
     done
 fi
 [ -n "$DEST" ] || DEST="$HOME/termux-mcp-shell"
+
+# Re-exec from a temporary copy when this script is running from inside the
+# directory it is about to delete, which is the default documented invocation
+# (`sh ~/termux-mcp-shell/uninstall.sh`). A shell reads a script incrementally,
+# so unlinking it mid-run can truncate the remaining commands. Copying first
+# makes the deletion order irrelevant.
+self="$0"
+case "$self" in
+    */*) ;;
+    *) self="$(command -v -- "$self" 2>/dev/null || printf '%s' "$self")" ;;
+esac
+case "$self" in
+    "$DEST"/*)
+        reexec="$(mktemp "${TMPDIR:-/tmp}/mcpsh-uninstall.XXXXXX" 2>/dev/null || printf '')"
+        if [ -n "$reexec" ] && cp -- "$self" "$reexec" 2>/dev/null; then
+            chmod +x "$reexec" 2>/dev/null || true
+            log "Re-executing from a temporary copy so the script can delete its own directory"
+            MCP_DEST="$DEST" sh "$reexec" "$@"
+            status=$?
+            rm -f "$reexec"
+            exit "$status"
+        fi
+        warn "could not stage a temporary copy; continuing may truncate this script"
+        ;;
+esac
+
+# Parsed after the relocation check so "$@" is still intact when re-executing.
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run|-n) DRY_RUN=1 ;;
+        --yes|-y) ASSUME_YES=1 ;;
+        --purge-deps) PURGE_DEPS=1 ;;
+        --dest) DEST="${2:-}"; shift ;;
+        --dest=*) DEST="${1#--dest=}" ;;
+        -h|--help) usage 0 ;;
+        *) printf 'unknown option: %s\n' "$1" >&2; usage 2 ;;
+    esac
+    shift
+done
 
 # Refuse to delete anything that is not an install directory. A mistyped
 # MCP_DEST must never turn into an rm -rf of $HOME or a parent directory.

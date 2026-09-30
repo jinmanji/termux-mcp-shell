@@ -109,11 +109,19 @@ bind address.
 
 ## Uninstall
 
+One-liner, the mirror of the install one-liner:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jinmanji/termux-mcp-shell/master/uninstall.sh | sh
+```
+
+Or, from the installed copy:
+
 ```sh
 sh ~/termux-mcp-shell/uninstall.sh
 ```
 
-The uninstaller stops the running server, removes the `PATH` line the
+Both stop the running server, remove the `PATH` line the
 installer added to `~/.bashrc`, `~/.zshrc`, `~/.profile`, and
 `~/.config/fish/config.fish`, deletes the install directory, and removes the
 `mcp` Python package. It is idempotent, so rerunning it is harmless, and it
