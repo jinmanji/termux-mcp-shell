@@ -5,7 +5,7 @@
 #   curl -fsSL <raw-url>/install.sh | sh   # remote one-liner (clones the repo)
 set -eu
 
-REPO_URL="${MCP_REPO_URL:-https://github.com/nelvinzfx/termux-mcp-shell}"
+REPO_URL="${MCP_REPO_URL:-https://github.com/jinmanji/termux-mcp-shell}"
 DEST="${MCP_DEST:-$HOME/termux-mcp-shell}"
 
 log() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }

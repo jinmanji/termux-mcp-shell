@@ -7,7 +7,7 @@ Streamable HTTP MCP server that gives an agent shell and file access inside Term
 ### One-liner
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nelvinzfx/termux-mcp-shell/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jinmanji/termux-mcp-shell/master/install.sh | sh
 ```
 
 The installer installs Python, Git, Termux's native Rust toolchain with its
@@ -26,7 +26,7 @@ Use another destination or repository with:
 
 ```sh
 MCP_DEST=$HOME/mcp MCP_REPO_URL=https://github.com/example/fork \
-  sh -c 'curl -fsSL https://raw.githubusercontent.com/nelvinzfx/termux-mcp-shell/master/install.sh | sh'
+  sh -c 'curl -fsSL https://raw.githubusercontent.com/jinmanji/termux-mcp-shell/master/install.sh | sh'
 ```
 
 ### Manual
