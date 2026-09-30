@@ -51,6 +51,36 @@ python server.py
 Only the `mcp` SDK is a direct Python dependency. The server otherwise uses the
 Python standard library.
 
+### `mcp` SDK version
+
+`requirements.txt` pins `mcp>=1.27.0,<2`, and both install paths above honour it.
+The server targets the 1.x SDK. 2.x renamed `FastMCP` to `MCPServer`, moved
+transport parameters such as `host` and `port` off the server constructor, and
+replaced the `mcp.server.fastmcp` module with a shim that always raises, so an
+environment resolving to 2.x fails at import before the server binds a port:
+
+```text
+ModuleNotFoundError: No module named 'mcp.server.fastmcp'. This is mcp 2.x,
+where FastMCP was renamed to MCPServer (from mcp.server.mcpserver import
+MCPServer) and other APIs changed; see the migration guide at
+https://py.sdk.modelcontextprotocol.io/v2/migration/#fastmcp-renamed-to-mcpserver
+or pin 'mcp<2' to keep running v1 code.
+```
+
+To repair an environment that already installed 2.x, downgrade and restart:
+
+```sh
+python -m pip install 'mcp<2'
+python -c 'from mcp.server.fastmcp import FastMCP'   # verify the import
+```
+
+That import is the quickest check: it succeeds on 1.x and raises the error above
+on 2.x. Confirm the installed version with `python -m pip show mcp`, then use
+`mcpsh-stop` and `mcpsh` to restart the server against the corrected environment.
+See the
+[v1 to v2 migration guide](https://py.sdk.modelcontextprotocol.io/v2/migration/)
+before removing the cap; the 2.x port is a server rewrite, not a version bump.
+
 ## Run and stop
 
 Foreground:
