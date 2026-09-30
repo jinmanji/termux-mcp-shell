@@ -107,6 +107,35 @@ The server binds loopback-only `127.0.0.1:8088` by default. LAN access requires
 explicit `MCP_HOST=0.0.0.0`; set `MCP_AUTH_TOKEN` whenever using a non-loopback
 bind address.
 
+## Uninstall
+
+```sh
+sh ~/termux-mcp-shell/uninstall.sh
+```
+
+The uninstaller stops the running server, removes the `PATH` line the
+installer added to `~/.bashrc`, `~/.zshrc`, `~/.profile`, and
+`~/.config/fish/config.fish`, deletes the install directory, and removes the
+`mcp` Python package. It is idempotent, so rerunning it is harmless, and it
+only deletes the marker block it recognises, leaving any shell lines you added
+afterwards in place. A custom `MCP_DEST` is discovered from that `PATH` line, so
+the script finds a relocated install without extra arguments.
+
+| Option | Effect |
+|---|---|
+| `--dry-run` | Print the plan and change nothing |
+| `--yes` | Skip the confirmation before deleting the install directory |
+| `--purge-deps` | Also remove the shared Python dependencies `mcp` pulled in |
+| `--dest PATH` | Target a specific install directory |
+
+Two things are deliberately left alone. The Termux packages the installer added
+(`python`, `git`, `rust`, the `rust-std` for your architecture, `make`,
+`pkg-config`, `patchelf`, and `python-cryptography`) are shared with the rest of
+Termux, and the uninstaller prints their names instead of removing them. The
+transitive Python dependencies (`pydantic`, `anyio`, `starlette`, `uvicorn`, and
+the rest) are shared with other Python tooling on the device, so they need
+`--purge-deps` to be removed.
+
 ## Configuration
 
 | Environment variable | Default | Purpose |

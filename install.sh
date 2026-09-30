@@ -60,6 +60,7 @@ if [ -f "./server.py" ] && [ -f "./requirements.txt" ]; then
         cp server.py requirements.txt "$DEST/"
         [ -f README.md ] && cp README.md "$DEST/" || true
         [ -f install.sh ] && cp install.sh "$DEST/" || true
+        [ -f uninstall.sh ] && cp uninstall.sh "$DEST/" || true
     fi
 else
     log "Cloning $REPO_URL -> $DEST"
@@ -262,4 +263,5 @@ echo "Shells configured:$SHELLS_FOUND"
 echo "Open a new terminal tab, then:"
 echo "  mcpsh        Start server in background"
 echo "  mcpsh-stop   Stop server"
+echo "  sh $DEST/uninstall.sh   Uninstall (add --dry-run to preview)"
 echo "  MCP endpoint: http://127.0.0.1:8088/mcp"
