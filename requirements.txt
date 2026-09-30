@@ -1,4 +1,10 @@
 # MCP SDK with Streamable HTTP transport support.
 # This also pulls in uvicorn + starlette (the ASGI runner used by the transport),
 # httpx, anyio, pydantic, etc. as transitive dependencies.
-mcp>=1.27.0
+#
+# The <2 cap is required: mcp 2.x renamed FastMCP to MCPServer and removed
+# mcp.server.fastmcp, so an unpinned install crashes at import with
+# "ModuleNotFoundError: No module named 'mcp.server.fastmcp'". server.py also
+# uses the v1-only FastMCP(host=..., port=...) constructor kwargs and the v1
+# tool/call surface. See https://py.sdk.modelcontextprotocol.io/v2/migration/
+mcp>=1.27.0,<2
